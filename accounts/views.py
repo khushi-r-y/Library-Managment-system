@@ -1,45 +1,36 @@
 
-from django.contrib import messages
-from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
-from django.db import IntegrityError
-from .forms import MemberForm
-from .models import MemberProfile
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 
 
-def member_create(request):
+def login_view(request):
     if request.method == 'POST':
-        form = MemberForm(request.POST)
+        username = request.POST.get('username')
+        password = request.POST.get('password')
 
-        if form.is_valid():
-            d = form.cleaned_data
+        user = authenticate(
+            request,
+            username=username,
+            password=password
+        )
 
-            if User.objects.filter(username=d['username']).exists():
-                form.add_error('username', 'This username already exists. Please choose another username.')
-            else:
-                try:
-                    u = User.objects.create_user(
-                        username=d['username'],
-                        email=d['email'],
-                        first_name=d['first_name'],
-                        last_name=d['last_name'],
-                        password=d['password']
-                    )
+        if user is not None:
+            login(request, user)
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'Invalid username or password.')
 
-                    MemberProfile.objects.create(
-                        user=u,
-                        member_id=d['member_id'],
-                        phone=d['phone'],
-                        department=d['department']
-                    )
+    return render(request, 'login.html')
 
-                    messages.success(request, 'Member created successfully!')
-                    return redirect('members:list')
 
-                except IntegrityError:
-                    form.add_error(None, 'Unable to create member. Please check the details.')
+@login_required
+def logout_view(request):
+    logout(request)
+    return redirect('login')
 
-    else:
-        form = MemberForm()
 
-    return render(request, 'members/member_form.html', {'form': form})
+@login_required
+def dashboard(request):
+    return render(request, 'dashboard.html')
